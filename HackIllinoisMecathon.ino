@@ -14,6 +14,9 @@
 
 #define SERVO_1 11
 #define SERVO_2 3
+
+ApplicationFunctionSet Application_FunctionSet;
+
 Servo servo1;
 Servo servo2;
 
@@ -23,16 +26,31 @@ void setup()
   servo2.attach(SERVO_2);
   // put your setup code here, to run once:
   Application_FunctionSet.ApplicationFunctionSet_Init();
-  Application_FunctionSet.ApplicationFunctionSet_Bootup();
+  // Application_FunctionSet.ApplicationFunctionSet_Bootup();
   wdt_enable(WDTO_2S);
+  servo1.write(90);
+  servo2.write(90);
+  Serial.begin(9600);
 }
 
 void loop()
 {
-  //put your main code here, to run repeatedly:
+  
+  Application_FunctionSet.ApplicationFunctionSet_SensorDataUpdate();
   wdt_reset();
-  Application_FunctionSet.Drive(OwlCarMotionControl::Backward, 255)
-  // Application_FunctionSet.ApplicationFunctionSet_SensorDataUpdate();
+  Serial.println(Application_FunctionSet.UltrasoundData_cm);
+
+  if ((Application_FunctionSet.UltrasoundData_cm) > 10) {
+    // Application_FunctionSet.Drive(OwlBotMotionControl::Forward, 255);
+    servo1.write(75);
+    servo2.write(105);
+  } else {
+    // Application_FunctionSet.Drive(OwlBotMotionControl::Backward, 255);
+    servo1.write(105);
+    servo2.write(75);
+  }
+  delay(250);
+
   // Application_FunctionSet.ApplicationFunctionSet_KeyCommand();
   // Application_FunctionSet.ApplicationFunctionSet_RGB();
   // Application_FunctionSet.ApplicationFunctionSet_Rocker();

@@ -12,6 +12,9 @@
 #include "pitches.h"
 
 #define _Test_DeviceDriverSet 0
+
+#define TimeCompensation 4 
+
 // #define TimeCompensation 4 //时间补偿系数  （由于修改了T0定时器，导致标准库的 delay() 、millis()函数出现偏差，特此设置误差调节）
 // extern unsigned long millis();
 // extern void _delay(unsigned long ms);
@@ -190,3 +193,4 @@ private:
 };
 
 #endif
+
