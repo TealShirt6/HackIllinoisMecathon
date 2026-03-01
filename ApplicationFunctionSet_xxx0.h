@@ -36,6 +36,7 @@ public:
   void ApplicationFunctionSet_Init(void);
   void Test(void);
   void Drive(OwlBotMotionControl direction, uint8_t speed);
+  void ApplicationFunctionSet::Drive(float leftSpeed, float rightSpeed);
   void ApplicationFunctionSet::ApplicationFunctionSet_SensorDataUpdate(void);
 };
 

@@ -110,3 +110,40 @@ void ApplicationFunctionSet::Test(void)
 void ApplicationFunctionSet::Drive(OwlBotMotionControl direction, uint8_t speed) {
     ApplicationFunctionSet_OwlBotMotionControl(direction, speed);
 }
+
+void ApplicationFunctionSet::Drive(float leftSpeed, float rightSpeed) {
+  int p = 15;
+  // if (leftSpeed > 0) {
+  //   ApplicationFunctionSet_OwlBotMotionControl(OwlBotMotionControl::Right, 255);
+  // } else {
+  //   ApplicationFunctionSet_OwlBotMotionControl(OwlBotMotionControl::Left, 255);
+  // }
+
+  boolean dirA = leftSpeed > 0 ? direction_just : direction_back;
+  float spdA = leftSpeed > 0 ? leftSpeed : -leftSpeed;
+  if (spdA * p < 128)
+    spdA = 0;
+  else
+    spdA = min(spdA * p, 255);
+  boolean dirB = rightSpeed > 0 ? direction_just : direction_back;
+  float spdB = rightSpeed > 0 ? rightSpeed : -rightSpeed;
+  if (spdB * p < 128)
+    spdB = 0;
+  else
+    spdB = min(spdB * p, 255);
+
+  Serial.print("dirA: ");
+  Serial.print(dirA);
+  Serial.print(",dirB: ");
+  Serial.print(dirB);
+  Serial.print(",spdA: ");
+  Serial.print(spdA);
+  Serial.print(",spdB: ");
+  Serial.println(spdB);
+
+      // ApplicationFunctionSet_OwlBotMotionControl(OwlBotMotionControl::Forward, 255);
+
+  AppMotor.DeviceDriverSet_Motor_control(dirA, (uint8_t) spdA, dirB, (uint8_t) spdB, control_enable);
+  // AppMotor.DeviceDriverSet_Motor_control(leftSpeed > 0 ? direction_just : direction_back, leftSpeed > 0 ? leftSpeed : -leftSpeed,
+                                        // rightSpeed > 0 ? direction_just : direction_back, rightSpeed > 0 ? rightSpeed : -rightSpeed, control_enable); 
+}

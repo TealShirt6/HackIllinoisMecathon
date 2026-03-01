@@ -263,9 +263,11 @@ void DeviceDriverSet_MPU6050::DeviceDriverSet_MPU6050_getYawPitchRoll(float *yaw
     mpu.dmpGetQuaternion(&quaternion, FIFOBuffer);
     mpu.dmpGetGravity(&gravity, &quaternion);
     mpu.dmpGetYawPitchRoll(ypr, &quaternion, &gravity);
-    *yaw = ypr[0] * 180/M_PI;
-    *roll = ypr[1] * 180/M_PI;
+    *yaw = fmod(-ypr[0] * 180/M_PI + 360, 360);
+    *roll = (ypr[1] * 180/M_PI);
     *pitch = ypr[2] * 180/M_PI;
+    Serial.print("yaw: ");
+    Serial.println(*yaw);
     // Serial.print("ypr\t");
     // Serial.print(ypr[0] * 180/M_PI);
     // Serial.print("\t");

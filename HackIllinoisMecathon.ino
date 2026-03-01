@@ -22,6 +22,22 @@ ApplicationFunctionSet Application_FunctionSet;
 Servo servo1;
 Servo servo2;
 
+enum DriveMode
+{
+  Straight,
+  Turning
+};
+
+int targetAngle = 0;
+
+/* Turn power, greater means turn more CCW*/
+int turnPower() {
+  return fmod((targetAngle - Application_FunctionSet.MPUyaw) + 540, 360) - 180;
+} 
+
+int toneMillis = 0;
+DriveMode driveMode;
+
 void setup()
 {
   servo1.attach(SERVO_1);
@@ -32,41 +48,50 @@ void setup()
   servo1.write(90);
   servo2.write(90);
   Serial.begin(115200);
+  driveMode = DriveMode::Turning;
 }
 
 void loop()
 {
   wdt_reset();
   Application_FunctionSet.ApplicationFunctionSet_SensorDataUpdate();
-  // Serial.println(Application_FunctionSet.UltrasoundData_cm);
 
-
-
-  // if ((Application_FunctionSet.UltrasoundData_cm) > 20) {
-  //   Application_FunctionSet.Drive(OwlBotMotionControl::Forward, 255);
-  //   servo1.write(75);
-  //   servo2.write(105);
-  // } else {
-  //   Application_FunctionSet.Drive(OwlBotMotionControl::Backward, 255);
-  //   servo1.write(105);
-  //   servo2.write(75);
-  // }
+  switch (driveMode) {
+    case DriveMode::Straight:
+    toneMillis = millis();
+    Application_FunctionSet.Drive(OwlBotMotionControl::Forward, 255);
+    Serial.print("UltrasoundData: ");
+    Serial.println(Application_FunctionSet.UltrasoundData_cm);
+    if ((Application_FunctionSet.UltrasoundData_cm) < 20) {
+      driveMode = DriveMode::Turning;
+      if (targetAngle == 0) {
+        targetAngle = 180;
+      } else {
+        targetAngle = 0;
+      }
+    }
+    break;
+    case DriveMode::Turning:
+    if ((millis() - toneMillis) > 500) {
+      toneMillis = millis();
+      tone(5, 442, 250);
+    }
+    Serial.print("Turn power: ");
+    Serial.println(turnPower());
+    Application_FunctionSet.Drive(turnPower(), -1 * turnPower());
+    if (turnPower() < 5 && turnPower() > -5) {
+      driveMode = DriveMode::Straight;
+      break;
+    }
+    break;
+    default:
+    break;
+  }
 
   float dozerAdjust = 3 * max(-12, min(Application_FunctionSet.MPUpitch, 12));
-  Serial.println(dozerAdjust);
 
   servo1.write(90 + dozerAdjust);
   servo2.write(90 - dozerAdjust);
-  // if (Application_FunctionSet.MPUpitch < -5) {
-  //   servo1.write(75);
-  //   servo2.write(105);
-  // } else if (Application_FunctionSet.MPUpitch > 5) {
-  //   servo1.write(105);
-  //   servo2.write(75);
-  // } else {
-  //   servo1.write(90);
-  //   servo2.write(90);
-  // }
 
-  delay(100);
+  delay(50);
 }
