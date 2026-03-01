@@ -79,7 +79,7 @@ void loop()
     Serial.print("Turn power: ");
     Serial.println(turnPower());
     Application_FunctionSet.Drive(turnPower(), -1 * turnPower());
-    if (turnPower() < 5 && turnPower() > -5) {
+    if (turnPower() < 8 && turnPower() > -8) {
       driveMode = DriveMode::Straight;
       break;
     }

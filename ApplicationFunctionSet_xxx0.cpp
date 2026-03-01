@@ -113,11 +113,6 @@ void ApplicationFunctionSet::Drive(OwlBotMotionControl direction, uint8_t speed)
 
 void ApplicationFunctionSet::Drive(float leftSpeed, float rightSpeed) {
   int p = 15;
-  // if (leftSpeed > 0) {
-  //   ApplicationFunctionSet_OwlBotMotionControl(OwlBotMotionControl::Right, 255);
-  // } else {
-  //   ApplicationFunctionSet_OwlBotMotionControl(OwlBotMotionControl::Left, 255);
-  // }
 
   boolean dirA = leftSpeed > 0 ? direction_just : direction_back;
   float spdA = leftSpeed > 0 ? leftSpeed : -leftSpeed;
