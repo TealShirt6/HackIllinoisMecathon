@@ -182,14 +182,8 @@ class DeviceDriverSet_MPU6050
 {
 public:
   void DeviceDriverSet_MPU6050_Init(void);
-#if _Test_DeviceDriverSet
-  void DeviceDriverSet_MPU6050_Test(void);
-#endif
-  void DeviceDriverSet_MPU6050_dveGetEulerAngles(float *is_yaw);
-  void DeviceDriverSet_MPU6050_dveGetEulerAngles(float *gyro, float *is_yaw);
-
+  void DeviceDriverSet_MPU6050::DeviceDriverSet_MPU6050_getYawPitchRoll(float *yaw, float *pitch, float *roll);
 private:
-#define STM8S003F3_MPU6050_devAddr 0XA1
 };
 
 #endif

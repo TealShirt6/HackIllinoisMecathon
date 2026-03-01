@@ -11,76 +11,24 @@
 
 #include "ApplicationFunctionSet_xxx0.h"
 #include "DeviceDriverSet_xxx0.h"
-#include "MPU6050.h"
 
 /*Hardware device member object*/
 DeviceDriverSet_Motor AppMotor;
 DeviceDriverSet_ULTRASONIC AppULTRASONIC;
-MPU6050 mpu;
+DeviceDriverSet_MPU6050 AppMPU;
 
 void ApplicationFunctionSet::ApplicationFunctionSet_Init(void)
 {
-  Serial.begin(9600);
   AppMotor.DeviceDriverSet_Motor_Init();
   AppULTRASONIC.DeviceDriverSet_ULTRASONIC_Init();
-  
-
-  #if I2CDEV_IMPLEMENTATION == I2CDEV_ARDUINO_WIRE
-    Wire.begin(); 
-  #elif I2CDEV_IMPLEMENTATION == I2CDEV_BUILTIN_FASTWIRE
-    Fastwire::setup(400, true);
-  #endif
-
-  // Serial.println("Scanning...");
-
-  // for (byte address = 1; address < 127; address++) {
-  //   Wire.beginTransmission(address);
-  //   if (Wire.endTransmission() == 0) {
-  //     Serial.print("Found device at 0x");
-  //     Serial.println(address, HEX);
-  //   }
-  // }
-
-  /*Initialize device and check connection*/ 
-  Serial.println("Initializing MPU...");
-  mpu.initialize();
-  Serial.println("Testing MPU6050 connection...");
-  if(mpu.testConnection() ==  false){
-    Serial.println("MPU6050 connection failed");
-    // while(true);
-  }
-  else{
-    Serial.println("MPU6050 connection successful");
-  }
-
-  int devStatus = mpu.dmpInitialize();
-
-  Serial.print("dmp status: ");
-  Serial.println(devStatus);
-
-  Serial.println("Updating internal sensor offsets...\n");
-  mpu.setXAccelOffset(0); //Set your accelerometer offset for axis X
-  mpu.setYAccelOffset(0); //Set your accelerometer offset for axis Y
-  mpu.setZAccelOffset(0); //Set your accelerometer offset for axis Z
-  mpu.setXGyroOffset(0);  //Set your gyro offset for axis X
-  mpu.setYGyroOffset(0);  //Set your gyro offset for axis Y
-  mpu.setZGyroOffset(0);  //Set your gyro offset for axis Z
+  AppMPU.DeviceDriverSet_MPU6050_Init();
 }
 
 void ApplicationFunctionSet::ApplicationFunctionSet_SensorDataUpdate(void)
 {
-  AppULTRASONIC.DeviceDriverSet_ULTRASONIC_Get(&UltrasoundData_mm /*out*/); //超声波数据
+  AppULTRASONIC.DeviceDriverSet_ULTRASONIC_Get(&UltrasoundData_mm /*out*/);
   UltrasoundData_cm = UltrasoundData_mm / 10;
-  int16_t ax, ay, az;
-  int16_t gx, gy, gz;
-  mpu.getRotation(&gx, &gy, &gz);
-  Serial.print("a/g:\t");
-  Serial.print(ax); Serial.print("\t");
-  Serial.print(ay); Serial.print("\t");
-  Serial.print(az); Serial.print("\t");
-  Serial.print(gx); Serial.print("\t");
-  Serial.print(gy); Serial.print("\t");
-  Serial.println(gz);
+  AppMPU.DeviceDriverSet_MPU6050_getYawPitchRoll(&MPUyaw, &MPUpitch, &MPUroll /* out */);
 }
 
 /*

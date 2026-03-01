@@ -7,6 +7,10 @@
  */
 
 #include "DeviceDriverSet_xxx0.h"
+#include "I2Cdev.h"
+#include "MPU6050_6Axis_MotionApps20.h"
+
+MPU6050 mpu;
 
 /*ULTRASONIC*/
 void DeviceDriverSet_ULTRASONIC::DeviceDriverSet_ULTRASONIC_Init(void)
@@ -17,12 +21,12 @@ void DeviceDriverSet_ULTRASONIC::DeviceDriverSet_ULTRASONIC_Init(void)
 void DeviceDriverSet_ULTRASONIC::DeviceDriverSet_ULTRASONIC_Get(uint16_t *ULTRASONIC_Get /*out*/)
 {
   unsigned dat[2] = {0};
-  Wire.requestFrom(0x07, 1); //从器件读取一位数
+  Wire.requestFrom(0x07, 1); 
   if (Wire.available() > 0)
   {
     dat[0] = Wire.read();
   }
-  Wire.requestFrom(0x07, 1); //从器件读取一位数
+  Wire.requestFrom(0x07, 1); 
   if (Wire.available() > 0)
   {
     dat[1] = Wire.read();
@@ -35,13 +39,13 @@ void DeviceDriverSet_ULTRASONIC::DeviceDriverSet_ULTRASONIC_Get(uint16_t *ULTRAS
 void DeviceDriverSet_ULTRASONIC::DeviceDriverSet_ULTRASONIC_Test(void)
 {
   unsigned dat[2] = {0};
-  Wire.requestFrom(0x07, 1); //从器件读取一位数
+  Wire.requestFrom(0x07, 1);
   if (Wire.available() > 0)
   {
     dat[0] = Wire.read();
   }
 
-  Wire.requestFrom(0x07, 1); //从器件读取一位数
+  Wire.requestFrom(0x07, 1); 
   if (Wire.available() > 0)
   {
     dat[1] = Wire.read();
@@ -85,16 +89,16 @@ void DeviceDriverSet_Motor::DeviceDriverSet_Motor_Test(void)
 /*
  Motor_control：AB / 方向、速度
 */
-void DeviceDriverSet_Motor::DeviceDriverSet_Motor_control(boolean direction_A, uint8_t speed_A, //A组电机参数
-                                                          boolean direction_B, uint8_t speed_B, //B组电机参数
-                                                          boolean controlED                     //AB使能允许 true
-                                                          )                                     //电机控制
+void DeviceDriverSet_Motor::DeviceDriverSet_Motor_control(boolean direction_A, uint8_t speed_A, 
+                                                          boolean direction_B, uint8_t speed_B, 
+                                                          boolean controlED                     
+                                                          )                                    
 {
-   if (controlED == control_enable) //使能允许？
+   if (controlED == control_enable)
   {
-    digitalWrite(PIN_Motor_STBY, HIGH); //开启
-    {                                   //A...
-      switch (direction_A)              //方向控制
+    digitalWrite(PIN_Motor_STBY, HIGH); 
+    {                                   
+      switch (direction_A)             
       {
       case direction_just:
         digitalWrite(PIN_Motor_AIN, HIGH);
@@ -142,86 +146,131 @@ void DeviceDriverSet_Motor::DeviceDriverSet_Motor_control(boolean direction_A, u
   }
 }
 
+int const INTERRUPT_PIN = 2;
+/*---MPU6050 Control/Status Variables---*/
+bool DMPReady = false;  // Set true if DMP init was successful
+uint8_t MPUIntStatus;   // Holds actual interrupt status byte from MPU
+uint8_t devStatus;      // Return status after each device operation (0 = success, !0 = error)
+uint16_t packetSize;    // Expected DMP packet size (default is 42 bytes)
+uint8_t FIFOBuffer[64]; // FIFO storage buffer
+
+/*---Orientation/Motion Variables---*/ 
+Quaternion quaternion;           // [w, x, y, z]         Quaternion container
+VectorInt16 aa;         // [x, y, z]            Accel sensor measurements
+VectorInt16 gy;         // [x, y, z]            Gyro sensor measurements
+VectorInt16 aaReal;     // [x, y, z]            Gravity-free accel sensor measurements
+VectorInt16 aaWorld;    // [x, y, z]            World-frame accel sensor measurements
+VectorFloat gravity;    // [x, y, z]            Gravity vector
+float euler[3];         // [psi, theta, phi]    Euler angle container
+float ypr[3];           // [yaw, pitch, roll]   Yaw/Pitch/Roll container and gravity vector
+
+/*-Packet structure for InvenSense teapot demo-*/ 
+uint8_t teapotPacket[14] = { '$', 0x02, 0, 0, 0, 0, 0, 0, 0, 0, 0x00, 0x00, '\r', '\n' };
+
+/*------Interrupt detection routine------*/
+volatile bool MPUInterrupt = false;     // Indicates whether MPU6050 interrupt pin has gone high
+void DMPDataReady() {
+  MPUInterrupt = true;
+}
+
 /*STM8S003F3_MPU6050*/
 void DeviceDriverSet_MPU6050::DeviceDriverSet_MPU6050_Init(void)
 {
-  Wire.begin();
-  Wire.beginTransmission(STM8S003F3_MPU6050_devAddr);
-  Wire.write(110);
-  Wire.endTransmission();
-  delay(50);
+  #if I2CDEV_IMPLEMENTATION == I2CDEV_ARDUINO_WIRE
+    Wire.begin();
+    Wire.setClock(400000); // 400kHz I2C clock. Comment on this line if having compilation difficulties
+  #elif I2CDEV_IMPLEMENTATION == I2CDEV_BUILTIN_FASTWIRE
+    Fastwire::setup(400, true);
+  #endif
+  
+
+  Serial.begin(115200); //115200 is required for Teapot Demo output
+  while (!Serial);
+
+  /*Initialize device*/
+  Serial.println(F("Initializing I2C devices..."));
+  mpu.initialize();
+  pinMode(INTERRUPT_PIN, INPUT);
+
+  /*Verify connection*/
+  Serial.println(F("Testing MPU6050 connection..."));
+  if(mpu.testConnection() == false){
+    Serial.println("MPU6050 connection failed");
+    // while(true);
+  }
+  else {
+    Serial.println("MPU6050 connection successful");
+  }
+
+  /* Have user send character over serial to initialize dmp */
+  /*Wait for Serial input*/
+  // Serial.println(F("\nSend any character to begin: "));
+  // while (Serial.available() && Serial.read()); // Empty buffer
+  // while (!Serial.available());                 // Wait for data
+  // while (Serial.available() && Serial.read()); // Empty buffer again
+
+  /* Initializate and configure the DMP*/
+  Serial.println(F("Initializing DMP..."));
+  devStatus = mpu.dmpInitialize();
+
+  /* Supply your gyro offsets here, scaled for min sensitivity */
+  mpu.setXGyroOffset(0);
+  mpu.setYGyroOffset(0);
+  mpu.setZGyroOffset(0);
+  mpu.setXAccelOffset(0);
+  mpu.setYAccelOffset(0);
+  mpu.setZAccelOffset(0);
+
+  /* Making sure it worked (returns 0 if so) */ 
+  if (devStatus == 0) {
+    mpu.CalibrateAccel(6);  // Calibration Time: generate offsets and calibrate our MPU6050
+    mpu.CalibrateGyro(6);
+    Serial.println("These are the Active offsets: ");
+    mpu.PrintActiveOffsets();
+    Serial.println(F("Enabling DMP..."));   //Turning ON DMP
+    mpu.setDMPEnabled(true);
+
+    /*Enable Arduino interrupt detection*/
+    Serial.print(F("Enabling interrupt detection (Arduino external interrupt "));
+    Serial.print(digitalPinToInterrupt(INTERRUPT_PIN));
+    Serial.println(F(")..."));
+    attachInterrupt(digitalPinToInterrupt(INTERRUPT_PIN), DMPDataReady, RISING);
+    MPUIntStatus = mpu.getIntStatus();
+
+    /* Set the DMP Ready flag so the main loop() function knows it is okay to use it */
+    Serial.println(F("DMP ready! Waiting for first interrupt..."));
+    DMPReady = true;
+    packetSize = mpu.dmpGetFIFOPacketSize(); //Get expected DMP packet size for later comparison
+  } 
+  else {
+    Serial.print(F("DMP Initialization failed (code ")); //Print the error code
+    Serial.print(devStatus);
+    Serial.println(F(")"));
+    // 1 = initial memory load failed
+    // 2 = DMP configuration updates failed
+  }
+  pinMode(LED_BUILTIN, OUTPUT);
+
 }
 
-void DeviceDriverSet_MPU6050::DeviceDriverSet_MPU6050_dveGetEulerAngles(float *is_yaw)
+void DeviceDriverSet_MPU6050::DeviceDriverSet_MPU6050_getYawPitchRoll(float *yaw, float *pitch, float *roll)
 {
-  // uint8_t STM8S003F3_MPU6050_IIC_buff[6];
-  // uint8_t a = 0;
-  // Wire.requestFrom(STM8S003F3_MPU6050_devAddr, 6); // request 6 bytes from slave device #2
-  // while (Wire.available())                         // slave may send less than requested
-  // {
-  //   STM8S003F3_MPU6050_IIC_buff[a++] = Wire.read(); // receive a byte as character
-  // }
-
-  // if ((STM8S003F3_MPU6050_IIC_buff[0] == 0XA1) && (STM8S003F3_MPU6050_IIC_buff[5] == 0XB1))
-  // {
-  //   //*gyro = ((STM8S003F3_MPU6050_IIC_buff[1] << 8) | (STM8S003F3_MPU6050_IIC_buff[2])) / 1000.00;
-  //   *is_yaw = ((STM8S003F3_MPU6050_IIC_buff[3] << 8) | (STM8S003F3_MPU6050_IIC_buff[4])) / 100.00;
-  // }
-  // else
-  // {
-  //   /* code */
-  //   //Serial.println("Contact Changhua :STM8S003F3_MPU6050 data error"); // print the character
-  //   return;
-  // }
-  float gyro, yaw;
-  DeviceDriverSet_MPU6050::DeviceDriverSet_MPU6050_dveGetEulerAngles(&gyro, &yaw);
-  *is_yaw = yaw;
-}
-
-void DeviceDriverSet_MPU6050::DeviceDriverSet_MPU6050_dveGetEulerAngles(float *gyro, float *is_yaw)
-{
-  uint8_t STM8S003F3_MPU6050_IIC_buff[6];
-  uint8_t a = 0;
-  Wire.requestFrom(STM8S003F3_MPU6050_devAddr, 6); // request 6 bytes from slave device #2
-  while (Wire.available())                         // slave may send less than requested
-  {
-    STM8S003F3_MPU6050_IIC_buff[a++] = Wire.read(); // receive a byte as character
-  }
-
-  if ((STM8S003F3_MPU6050_IIC_buff[0] == 0XA1) && (STM8S003F3_MPU6050_IIC_buff[5] == 0XB1))
-  {
-    *gyro = ((STM8S003F3_MPU6050_IIC_buff[1] << 8) | (STM8S003F3_MPU6050_IIC_buff[2])) / 1000.00;
-    *is_yaw = ((STM8S003F3_MPU6050_IIC_buff[3] << 8) | (STM8S003F3_MPU6050_IIC_buff[4])) / 100.00;
-  }
-  else
-  {
-    /* code */
-    //Serial.println("Contact Changhua :STM8S003F3_MPU6050 data error"); // print the character
-    return;
+  if (!DMPReady) return; // Stop the program if DMP programming fails.
+    
+  /* Read a packet from FIFO */
+  if (mpu.dmpGetCurrentFIFOPacket(FIFOBuffer)) { // Get the Latest packet 
+    /* Display Euler angles in degrees */
+    mpu.dmpGetQuaternion(&quaternion, FIFOBuffer);
+    mpu.dmpGetGravity(&gravity, &quaternion);
+    mpu.dmpGetYawPitchRoll(ypr, &quaternion, &gravity);
+    *yaw = ypr[0] * 180/M_PI;
+    *roll = ypr[1] * 180/M_PI;
+    *pitch = ypr[2] * 180/M_PI;
+    // Serial.print("ypr\t");
+    // Serial.print(ypr[0] * 180/M_PI);
+    // Serial.print("\t");
+    // Serial.print(ypr[1] * 180/M_PI);
+    // Serial.print("\t");
+    // Serial.println(ypr[2] * 180/M_PI);
   }
 }
-#if _Test_DeviceDriverSet
-void DeviceDriverSet_MPU6050::DeviceDriverSet_MPU6050_Test(void)
-{
-
-  uint8_t STM8S003F3_MPU6050_IIC_buff[4];
-  uint8_t a = 0;
-  Wire.requestFrom(STM8S003F3_MPU6050_devAddr, 4); // request 6 bytes from slave device #2
-  while (Wire.available())                         // slave may send less than requested
-  {
-    STM8S003F3_MPU6050_IIC_buff[a++] = Wire.read(); // receive a byte as character
-  }
-
-  if ((STM8S003F3_MPU6050_IIC_buff[0] == 0XA1) && (STM8S003F3_MPU6050_IIC_buff[3] == 0XB1))
-  {
-    Serial.print("STM8S003F3_MPU6050->is_yaw:      ");
-    Serial.println((STM8S003F3_MPU6050_IIC_buff[1] << 8) | (STM8S003F3_MPU6050_IIC_buff[2]));
-    Serial.println("...................................."); // print the character
-  }
-  else
-  {
-    /* code */
-    Serial.println("STM8S003F3_MPU6050 data error"); // print the character
-  }
-}
-#endif

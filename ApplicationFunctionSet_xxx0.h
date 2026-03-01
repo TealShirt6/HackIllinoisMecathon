@@ -30,11 +30,13 @@ class ApplicationFunctionSet
 public:
   uint16_t UltrasoundData_cm;
   uint16_t UltrasoundData_mm;
+  float MPUyaw;
+  float MPUpitch;
+  float MPUroll;
   void ApplicationFunctionSet_Init(void);
   void Test(void);
   void Drive(OwlBotMotionControl direction, uint8_t speed);
   void ApplicationFunctionSet::ApplicationFunctionSet_SensorDataUpdate(void);
-
 };
 
 #endif
